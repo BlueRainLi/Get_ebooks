@@ -8,6 +8,7 @@ import time
 
 
 def get_title_list():
+    time1 = time.time()
     late = 0
     title_list = []
     for x in range(1,3):
@@ -15,7 +16,6 @@ def get_title_list():
             url = "https://www.wenku8.net/novel/"+str(x)+"/"+str(x*1000+i)+"/index.htm"
             data = BeautifulSoup(requests.get(url).content,"html.parser")
             title_data = data.find(id="title") # get the title
-            print(title_data)
             if type(title_data) == type(None):
                 late = late + 1 # fail too much and we will break
                 if late > 5:
@@ -29,6 +29,8 @@ def get_title_list():
 
     with open("title_list.txt","w") as f:
         f.write("\n".join(title_list))
+    time2 = time.time()-time1
+    print('Done\nUsing time: %0.2fs' %time2)
 
 
 def get_single_one(No):
@@ -58,11 +60,13 @@ def get_single_one(No):
         else:
             ahref = item.find('a')
             if ahref != None:
-                chapter = epub.EpubHtml(title=ahref.string,file_name=ahref.get('href'),lang='hr')
+                filename = re.match('[0-9]+',ahref.get('href')).group()
+                chapter = epub.EpubHtml(title=ahref.string,file_name=filename+'.xhtml',lang='hr')
                 innerlink = "https://www.wenku8.net/novel/1/"+No+"/"+ahref.get("href")
-                print(ahref.get('href'),item.string)
+                print(filename,item.string)
                 text_data = BeautifulSoup(requests.get(innerlink).content,"html.parser")
-                text = '<br>'+item.string+'<br><br>'+str(text_data.find(id='content'))
+                text = '<br/>'+item.string+'<br/>'+str(text_data.find(id='content'))
+                text = text.replace('<br/>\n<br/>','<br/>')
                 chapter.set_content(text)
                 x[1].append(chapter)
                 chapters.append(chapter)
@@ -82,7 +86,8 @@ def get_single_one(No):
     epub.write_epub(data.find(id='title').string+'.epub',book)
 
     # Return the time
-    print('Done\nUsing time:',time.time()-time1)
+    time2 = time.time()-time1
+    print('Done\nUsing time: %0.2fs' %time2)
 
 
 if __name__ == "__main__":
