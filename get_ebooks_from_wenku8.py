@@ -45,6 +45,7 @@ def get_single_one(No):
     book.set_title(data.find(id='title').string)
     book.set_language('en')
     book.add_author(data.find(id='info').string[3:])
+    print(data.find(id='title'))
 
     # Create toc and contents of book
     chapters = []
@@ -62,18 +63,45 @@ def get_single_one(No):
             if ahref != None:
                 filename = re.match('[0-9]+',ahref.get('href')).group()
                 chapter = epub.EpubHtml(title=ahref.string,file_name=filename+'.xhtml',lang='hr')
-                innerlink = "https://www.wenku8.net/novel/1/"+No+"/"+ahref.get("href")
+                innerlink = "https://www.wenku8.net/novel/"+str(int(No)//1000)+'/'+No+"/"+ahref.get("href")
                 print(filename,item.string)
                 text_data = BeautifulSoup(requests.get(innerlink).content,"html.parser")
-                text = '<br/>'+item.string+'<br/>'+str(text_data.find(id='content'))
-                text = text.replace('<br/>\n<br/>','<br/>')
-                chapter.set_content(text)
-                x[1].append(chapter)
-                chapters.append(chapter)
-                book.add_item(chapter)
+                if item.string != '插图':
+                    text = '<br/>'+item.string+'<br/>'+str(text_data.find(id='content'))
+                    text = text.replace('<br/>\n<br/>','<br/>')
+                    chapter.set_content(text)
+                    x[1].append(chapter)
+                    chapters.append(chapter)
+                    book.add_item(chapter)
+                else:
+                    imglink = text_data.findAll('img',class_='imagecontent')
+                    imglist = []
+                    text = '<img src='
+                    for i in range(len(imglink)):
+                        item = imglink[i]
+                        src = item.get('src')
+                        imgdata = requests.get(src).content
+                        name = re.search('[0-9]+.jpg',src).group()
+                        img = epub.EpubItem(file_name=name,media_type='jpg',content=imgdata)
+                        imglist.append(img)
+                        if i != len(imglink)-1:
+                            text = text + name + '> <br/> <img src='
+                        else:
+                            text = text + name + '>'
+                    chapter.set_content(text)
+                    x[1].append(chapter)
+                    chapters.append(chapter)
+                    book.add_item(chapter)
+                    for item in imglist:
+                        book.add_item(item)
             if i == len(url_link)-1:
                 x[1] = tuple(x[1])
-                toc.append(tuple(x))
+                if tuple(x) not in toc:
+                    toc.append(tuple(x))
+
+    # Test
+    # print(chapters)
+    # print(toc)
 
     # Add important configuration data such as toc and spine
     book.toc = tuple(toc)
@@ -91,5 +119,5 @@ def get_single_one(No):
 
 
 if __name__ == "__main__":
-    get_title_list()
-    # get_single_one('1213')
+    # get_title_list()
+    get_single_one('1999')
