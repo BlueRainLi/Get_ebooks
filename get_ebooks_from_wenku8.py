@@ -8,19 +8,21 @@ import time
 
 
 def get_title_list():
+    late = 0
     title_list = []
     for x in range(1,3):
         for i in range(0,1000):
-            late = 0
             url = "https://www.wenku8.net/novel/"+str(x)+"/"+str(x*1000+i)+"/index.htm"
             data = BeautifulSoup(requests.get(url).content,"html.parser")
             title_data = data.find(id="title") # get the title
+            print(title_data)
             if type(title_data) == type(None):
                 late = late + 1 # fail too much and we will break
                 if late > 5:
                     break
                 continue
             else:
+                late = 0
                 print(x*1000+i,title_data.string,data.find(id='info').string[3:],sep=" ")
                 title_list.append(url+"  "+data.find(id='info').string[3:]+"  "+title_data.string)
 
