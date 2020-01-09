@@ -1,20 +1,24 @@
 # -*- coding:utf-8 -*-
-from bs4 import BeautifulSoup
-import requests
 import re
-import ebooklib
-from ebooklib import epub
 import time
 
+import requests
+from bs4 import BeautifulSoup
+from ebooklib import epub
+from requests.adapters import HTTPAdapter
 
-def get_title_list():
+
+def get_title_list(timeout=8,max_retries=5):
+    # Set max retries
+    requests.session().mount('http://',HTTPAdapter(max_retries=max_retries))
+    requests.session().mount('https://',HTTPAdapter(max_retries=max_retries))
     time1 = time.time()
     late = 0
     title_list = []
     for x in range(1,3):
         for i in range(0,1000):
             url = "https://www.wenku8.net/novel/"+str(x)+"/"+str(x*1000+i)+"/index.htm"
-            data = BeautifulSoup(requests.get(url).content,"html.parser")
+            data = BeautifulSoup(requests.get(url,timeout=timeout).content,"html.parser")
             title_data = data.find(id="title") # get the title
             if type(title_data) == type(None):
                 late = late + 1 # fail too much and we will break
@@ -33,10 +37,16 @@ def get_title_list():
     print('Done\nUsing time: %0.2fs' %time2)
 
 
-def get_single_one(No):
+def get_single_one(No,timeout=8,max_retries=5):
+
+    # Set start time
     time1 = time.time()
+
+    # Set max retries
+    requests.session().mount('http://',HTTPAdapter(max_retries=max_retries))
+    requests.session().mount('https://',HTTPAdapter(max_retries=max_retries))
     url = "https://www.wenku8.net/novel/1/"+No+"/index.htm"
-    data = BeautifulSoup(requests.get(url).content,"html.parser") # analyze the data
+    data = BeautifulSoup(requests.get(url,timeout=timeout).content,"html.parser") # analyze the data
     url_link = data.findAll(class_=['vcss','ccss']) # Get the all url link
 
     # Create a book
@@ -65,7 +75,7 @@ def get_single_one(No):
                 chapter = epub.EpubHtml(title=ahref.string,file_name=filename+'.xhtml',lang='hr')
                 innerlink = "https://www.wenku8.net/novel/"+str(int(No)//1000)+'/'+No+"/"+ahref.get("href")
                 print(filename,item.string)
-                text_data = BeautifulSoup(requests.get(innerlink).content,"html.parser")
+                text_data = BeautifulSoup(requests.get(innerlink,timeout=timeout).content,"html.parser")
                 if item.string != '插图':
                     text = '<br/>'+item.string+'<br/>'+str(text_data.find(id='content'))
                     text = text.replace('<br/>\n<br/>','<br/>')
@@ -80,7 +90,7 @@ def get_single_one(No):
                     for i in range(len(imglink)):
                         item = imglink[i]
                         src = item.get('src')
-                        imgdata = requests.get(src).content
+                        imgdata = requests.get(src,timeout=timeout).content
                         name = re.search('[0-9]+.jpg',src).group()
                         img = epub.EpubItem(file_name=name,media_type='jpg',content=imgdata)
                         imglist.append(img)
