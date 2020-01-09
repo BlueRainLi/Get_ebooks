@@ -10,8 +10,9 @@ from requests.adapters import HTTPAdapter
 
 def get_title_list(timeout=8,max_retries=5):
     # Set max retries
-    requests.session().mount('http://',HTTPAdapter(max_retries=max_retries))
-    requests.session().mount('https://',HTTPAdapter(max_retries=max_retries))
+    s = requests.Session()
+    s.mount('http://',HTTPAdapter(max_retries=max_retries))
+    s.mount('https://',HTTPAdapter(max_retries=max_retries))
     time1 = time.time()
     late = 0
     title_list = []
@@ -43,8 +44,11 @@ def get_single_one(No,timeout=8,max_retries=5):
     time1 = time.time()
 
     # Set max retries
-    requests.session().mount('http://',HTTPAdapter(max_retries=max_retries))
-    requests.session().mount('https://',HTTPAdapter(max_retries=max_retries))
+    s = requests.Session()
+    s.mount('http://',HTTPAdapter(max_retries=max_retries))
+    s.mount('https://',HTTPAdapter(max_retries=max_retries))
+
+
     url = "https://www.wenku8.net/novel/1/"+No+"/index.htm"
     data = BeautifulSoup(requests.get(url,timeout=timeout).content,"html.parser") # analyze the data
     url_link = data.findAll(class_=['vcss','ccss']) # Get the all url link
