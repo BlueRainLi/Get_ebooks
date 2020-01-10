@@ -1,5 +1,6 @@
 # -*- coding:utf-8 -*-
 import re
+import threading
 import time
 
 import requests
@@ -14,13 +15,32 @@ def retry_request_get(url,timeout):
         try:
             req = requests.get(url,timeout=timeout)
         except:
-            ask = input('Something went wrong with the network. Do you want to retry? (Y/N)').lower()
+            ask = input('Something went wrong with the network. Do you want to retry? (Y/N) ').lower()
             while ask != 'y' and ask != 'n':
                 ask = input('Please input the correct message. (Y/N)').lower()
         finally:
             if 'req' in locals().keys(): # If req is defined, return req.
                 ask = 'n'
     return req
+
+
+def find_all (c,s:list):
+    if c not in s:
+        return False
+    return [x for x in range(len(s)) if c == s[x]]
+
+
+def get_picture(index,src,timeout,imglist):
+    try:
+        req = requests.get(src,timeout=timeout)
+    except:
+        pass
+    else:
+        imgdata = req.content
+        match = re.search('[0-9]+.(jpg|png)',src)
+        name = match.group()
+        img = epub.EpubItem(file_name=name,media_type=match.group(1),content=imgdata)
+        imglist[index] = img
 
 
 def get_title_list(timeout=(8,10),max_retries=5):
@@ -109,21 +129,31 @@ def get_single_one(No,timeout=(8,10),max_retries=5):
                     book.add_item(chapter)
                 else: # Get picture pages
                     imglink = text_data.findAll('img',class_='imagecontent')
-                    imglist = []
+                    lens = len(imglink)
+                    print('Number of images:',lens)
+                    imglist = [None]*lens
+                    while find_all(None,imglist):
+                        Nonelist = find_all(None,imglist)
+                        pendinglist = []
+                        if len(Nonelist) != lens:
+                            ask = input('%d picture(s) failed. Do you want to retry? (Y/N) ' % len(Nonelist)).lower()
+                            if ask != 'y':
+                                break
+                        for i in Nonelist:
+                            item = imglink[i]
+                            src = item.get('src')
+                            pendinglist.append(threading.Thread(target=get_picture,args=(i,src,timeout,imglist)))
+                        for item in pendinglist:
+                            item.start()
+                        for item in pendinglist:
+                            item.join()
                     text = '<img src='
-                    for i in range(len(imglink)):
-                        item = imglink[i]
-                        src = item.get('src')
-                        imgdata = retry_request_get(src,timeout).content
-                        name = re.search('[0-9]+.jpg',src).group()
-                        print(name,end=' ')
-                        img = epub.EpubItem(file_name=name,media_type='jpg',content=imgdata)
-                        imglist.append(img)
-                        if i != len(imglink)-1:
+                    for i in range(lens):
+                        name = imglist[i].get_name()
+                        if i != lens-1:
                             text = text + name + '> <br/> <img src='
                         else:
                             text = text + name + '>'
-                    print('')
                     chapter.set_content(text)
                     x[1].append(chapter)
                     chapters.append(chapter)
@@ -151,4 +181,4 @@ def get_single_one(No,timeout=(8,10),max_retries=5):
 
 if __name__ == "__main__":
     # get_title_list()
-    get_single_one('1546')
+    get_single_one('1999')
