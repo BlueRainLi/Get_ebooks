@@ -1,2 +1,2 @@
-from get_ebooks_from_wenku8 import retry_request_get,get_title_list,get_single_one
-get_single_one('1999')
+import get_ebooks_from_wenku8 as get
+get.get_ebooks("1") # 文学少女
