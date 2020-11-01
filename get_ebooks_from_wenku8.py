@@ -11,6 +11,7 @@ import threading
 import time
 from functools import reduce
 
+
 import requests
 from bs4 import BeautifulSoup
 from ebooklib import epub
@@ -54,7 +55,10 @@ def get_picture(index: int, src: str, timeout, imglist: list):
         imgdata = req.content
         match = re.search('[0-9]+.(jpg|png)', src)
         name = match.group()
-        img = epub.EpubItem(file_name=name, media_type=match.group(1), content=imgdata)
+        img = epub.EpubImage()
+        img.file_name = name
+        img.media_type = "image/"+match.group(1)
+        img.content = imgdata
         imglist[index] = img
 
 
@@ -97,9 +101,9 @@ def checking_group_valid(group: list):
     return True
 
 
-def book_init(name: str, author: str, title=None, series=None, number=None):
+def book_init(name: str, author: str, title=None, series=None, number=None, identifier='BlueRain77'):
     book = epub.EpubBook()
-    book.set_identifier('id123456')
+    book.set_identifier(identifier)
     if title == None:
         book.set_title(name)
     else:
@@ -213,10 +217,12 @@ def get_ebooks(No: str, booknumber=1, timeout=(1, 3), max_retries=5, always=Fals
     # Start collecting the data
     toc = [None] * (len(group))
     bookadd = [None] * (len(group))
+    total_image_list = [None] * (len(group))
+
     for j in range(len(group)):
         item = group[j]
         print(j + 1, item[0].string)
-        toc[j:int] = [epub.Section(item[0].string), []]
+        toc[j] = [epub.Section(item[0].string), []]
         chapters = []
         imglist = None
         for i in range(1, len(item)):
@@ -267,7 +273,6 @@ def get_ebooks(No: str, booknumber=1, timeout=(1, 3), max_retries=5, always=Fals
                     name = imglist[ik].get_name()
                     print(name)
                     imglink[ik]['src'] = name
-                    print(imglink[ik])
 
                 # Get basic pages
                 text = '<br/>' + item[i].string + '<br/>' + str(text_data.find(id='content'))
@@ -276,7 +281,7 @@ def get_ebooks(No: str, booknumber=1, timeout=(1, 3), max_retries=5, always=Fals
                 chapter.set_content(text)
                 chapters.append(chapter)
                 toc[j][1].append(chapter)
-                chapters = chapters + imglist
+                total_image_list[j] = imglist
         bookadd[j] = chapters
 
     if booknumber == 2:
@@ -287,6 +292,8 @@ def get_ebooks(No: str, booknumber=1, timeout=(1, 3), max_retries=5, always=Fals
             book.spine = ['nav'] + bookadd[i]
             for item in bookadd[i]:
                 book.add_item(item)
+            for img_list in total_image_list[i]:
+                book.add_item(img_list)
             book.add_item(epub.EpubNcx())
             book.add_item(epub.EpubNav())
 
@@ -298,6 +305,10 @@ def get_ebooks(No: str, booknumber=1, timeout=(1, 3), max_retries=5, always=Fals
         book.spine = ['nav'] + spine
         for item in spine:
             book.add_item(item)
+        for img_list in total_image_list:
+            if img_list != None:
+                for item in img_list:
+                    book.add_item(item)
         book.add_item(epub.EpubNcx())
         book.add_item(epub.EpubNav())
 
