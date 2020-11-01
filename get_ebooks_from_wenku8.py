@@ -11,60 +11,57 @@ import threading
 import time
 from functools import reduce
 
-
 import requests
 from bs4 import BeautifulSoup
 from ebooklib import epub
 from requests.adapters import HTTPAdapter
+from typing import List, cast
 
 
 def retry_request_get(url, timeout, always=False):
     req = None
     ask = 'y'  # At least try to request for one times.
-    while ask == 'y' or always == True:
+    while req is None and (ask == 'y' or always):
         try:
             req = requests.get(url, timeout=timeout)
-        except:
+            req.raise_for_status()
+        except requests.RequestException:
             if not always:
                 ask = input('Something went wrong with the network. Do you want to retry? (Y/N) ').lower()
             while ask != 'y' and ask != 'n':
                 ask = input('Please input the correct message. (Y/N)').lower()
-        finally:
-            if 'req' in locals().keys():  # If req is defined, return req.
-                ask = 'n'
-                always = False
     return req
 
 
-def find_all(c, s: list):
+def find_all(c, s: list) -> List[int]:
     """
 
-    :rtype: list
+    :rtype: List[int]
     """
     if c not in s:
-        return False
+        return []
     return [x for x in range(len(s)) if c == s[x]]
 
 
-def get_picture(index: int, src: str, timeout, imglist: list):
+def get_picture(index: int, src: str, timeout, img_list: list):
     try:
         req = requests.get(src, timeout=timeout)
     except Exception as e:
         print(src, e)
     else:
-        imgdata = req.content
+        img_data = req.content
         match = re.search('[0-9]+.(jpg|png)', src)
         name = match.group()
         img = epub.EpubImage()
         img.file_name = name
-        img.media_type = "image/"+match.group(1)
-        img.content = imgdata
-        imglist[index] = img
+        img.media_type = "image/" + match.group(1)
+        img.content = img_data
+        img_list[index] = img
 
 
 def checking_valid(group: list):
     for item in group:
-        if isinstance(item,list):
+        if isinstance(item, list):
             return False
         elif item[0].get("class") != ["vcss"]:
             return False
@@ -84,13 +81,13 @@ def make_dir(name: str):
         return False
 
 
-def addList(x: list, y: list):
+def add_list(x: list, y: list):
     return x + y
 
 
 def checking_group_valid(group: list):
     for item in group:
-        if type(item) != type([]):
+        if isinstance(item, list):
             return False
         elif item[0].get("class") != ["vcss"]:
             return False
@@ -104,15 +101,15 @@ def checking_group_valid(group: list):
 def book_init(name: str, author: str, title=None, series=None, number=None, identifier='BlueRain77'):
     book = epub.EpubBook()
     book.set_identifier(identifier)
-    if title == None:
+    if title is None:
         book.set_title(name)
     else:
         book.set_title(name + ' ' + title)
     book.set_language('zh')
     book.add_author(author)
-    if series != None:
+    if series is not None:
         book.add_metadata("DC", "series", series)
-    if number != None:
+    if number is not None:
         book.add_metadata("DC", "series-index", number)
     return book
 
@@ -128,14 +125,13 @@ def get_title_list(timeout=(1, 3), max_retries=5):
 
     # Set main process
     late = 0
-    available = True
     title_list = []
     for x in range(0, 3):
         for i in range(0, 1000):
             url = "https://www.wenku8.net/novel/" + str(x) + "/" + str(x * 1000 + i) + "/index.htm"
             data = BeautifulSoup(retry_request_get(url, timeout).content, "html.parser")
             title_data = data.find(id="title")  # get the title
-            if type(title_data) == type(None):
+            if title_data is None:
                 late = late + 1  # fail too much and we will break
                 if late > 5:
                     break
@@ -149,7 +145,7 @@ def get_title_list(timeout=(1, 3), max_retries=5):
                 else:
                     available = True
 
-                if available == True:  # print out the book message
+                if available:  # print out the book message
                     print(x * 1000 + i, title_data.string, data.find(id='info').string[3:], sep=" ")
                     title_list.append(url + "  " + data.find(id='info').string[3:] + "  " + title_data.string)
                 else:
@@ -164,16 +160,16 @@ def get_title_list(timeout=(1, 3), max_retries=5):
     print('Done\nUsing time: %0.2fs' % time2)
 
 
-def get_ebooks(No: str, booknumber=1, timeout=(1, 3), max_retries=5, always=False):
+def get_ebooks(number: str, book_number=1, timeout=(1, 3), max_retries=5, always=False):
     """
     A little function to get ebook(s) from www.wenku8.net.
     
     Args:
-    No: A string of number representing the book. Example: "1","1999"
-    booknumber: A int to choose to create only one file(1) or multiple files(2).
+    number: A string of number representing the book. Example: "1","1999"
+    book_number: A int to choose to create only one file(1) or multiple files(2).
     timeout: A tuple with two values which refer to the waiting time of sending requests and waiting responses
-    max_retries: A int to set the times of retring requests the url.
-    always: A Boolean to depend whether keep retring to request or not.
+    max_retries: A int to set the times of retrying requests the url.
+    always: A Boolean to depend whether keep retrying to request or not.
     """
     # Start recording time
     time1 = time.time()
@@ -184,7 +180,7 @@ def get_ebooks(No: str, booknumber=1, timeout=(1, 3), max_retries=5, always=Fals
     s.mount('https://', HTTPAdapter(max_retries=max_retries))
 
     # Set the standard website and get basic data
-    url = "https://www.wenku8.net/novel/" + str(int(No) // 1000) + '/' + No + "/index.htm"
+    url = "https://www.wenku8.net/novel/" + str(int(number) // 1000) + '/' + number + "/index.htm"
     res = requests.get(url)
     print("Requests url:", url)
     print("Requests status:", res.status_code)
@@ -193,9 +189,9 @@ def get_ebooks(No: str, booknumber=1, timeout=(1, 3), max_retries=5, always=Fals
     url_link = data.findAll(class_=["vcss", "ccss"])
     group = []
     part = []
-    bookname = data.find(id='title').string
+    book_name = data.find(id='title').string
     author = data.find(id='info').string[3:]
-    print(bookname, author)
+    print(book_name, author)
 
     # Create all the data of sub-books
     print("Volume(s):")
@@ -215,8 +211,8 @@ def get_ebooks(No: str, booknumber=1, timeout=(1, 3), max_retries=5, always=Fals
     print("Volume(s) length:", len(group))
 
     # Start collecting the data
-    toc = [None] * (len(group))
-    bookadd = [None] * (len(group))
+    toc = [0] * (len(group))
+    book_add = [None] * (len(group))
     total_image_list = [None] * (len(group))
 
     for j in range(len(group)):
@@ -224,55 +220,56 @@ def get_ebooks(No: str, booknumber=1, timeout=(1, 3), max_retries=5, always=Fals
         print(j + 1, item[0].string)
         toc[j] = [epub.Section(item[0].string), []]
         chapters = []
-        imglist = None
         for i in range(1, len(item)):
-            ahref = item[i].find('a')
-            if ahref != None:
-                filename = re.match('[0-9]+', ahref.get('href')).group()
-                chapter = epub.EpubHtml(title=ahref.string, file_name=filename + '.xhtml', lang='hr')
-                innerlink = "https://www.wenku8.net/novel/" + str(int(No) // 1000) + '/' + No + '/' + ahref.get('href')
+            a_href = item[i].find('a')
+            if a_href is not None:
+                filename = re.match('[0-9]+', a_href.get('href')).group()
+                chapter = epub.EpubHtml(title=a_href.string, file_name=filename + '.xhtml', lang='hr')
+                inner_link = "https://www.wenku8.net/novel/" + str(int(number) // 1000)
+                inner_link += '/' + number + '/' + a_href.get('href')
                 print("  %5s" % filename, item[i].string)
-                text_data = BeautifulSoup(retry_request_get(innerlink, timeout, always=always).content, "html.parser")
-                alink = text_data.findAll("a")
-                a_truelink = []
-                for a_link in alink:
-                    if a_link.find('img') == None:
+                text_data = BeautifulSoup(retry_request_get(inner_link, timeout, always=always).content, "html.parser")
+                a_links = text_data.findAll("a")
+                a_true_links = []
+                for a_link in a_links:
+                    if a_link.find('img') is None:
                         continue
                     else:
                         new_tag = text_data.new_tag('img')
                         new_tag['src'] = a_link.get('href')
                         new_tag['class'] = "imagecontent"
                         a_link.replace_with(new_tag)
-                        a_truelink.append(a_link)
+                        a_true_links.append(a_link)
                 # Get picture pages
-                imglink = text_data.findAll('img', class_='imagecontent')
-                lens = len(imglink)
-                if lens != 0: print("Number of picture: %d" % lens)
-                imglist = [None] * lens
-                while find_all(None, imglist):
-                    Nonelist = find_all(None, imglist)
-                    pendinglist = []
+                img_links = text_data.findAll('img', class_='imagecontent')
+                lens = len(img_links)
+                if lens != 0:
+                    print("Number of picture: %d" % lens)
+                img_lists = [None] * lens
+                while find_all(None, img_lists):
+                    none_list = find_all(None, img_lists)
+                    pending_list = []
                     ask = 'y'
-                    if len(Nonelist) != lens:
-                        if always == False:
-                            ask = input('  %d picture(s) failed. Do you want to retry? (Y/N) ' % len(Nonelist)).lower()
+                    if len(none_list) != lens:
+                        if not always:
+                            ask = input('  %d picture(s) failed. Do you want to retry? (Y/N) ' % len(none_list)).lower()
                         else:
-                            print('  %d picture(s) failed. Retring.' % len(Nonelist))
+                            print('  %d picture(s) failed. Retrying.' % len(none_list))
                         if ask != 'y':
                             break
-                    for ix in Nonelist:
-                        k = imglink[ix]
+                    for ix in none_list:
+                        k = img_links[ix]
                         src = k.get('src')
-                        pendinglist.append(threading.Thread(target=get_picture, args=(ix, src, timeout, imglist)))
-                    for x1 in pendinglist:
+                        pending_list.append(threading.Thread(target=get_picture, args=(ix, src, timeout, img_lists)))
+                    for x1 in pending_list:
                         x1.start()
-                    for x2 in pendinglist:
+                    for x2 in pending_list:
                         x2.join()
 
-                for ik in range(len(imglink)):
-                    name = imglist[ik].get_name()
+                for ik in range(len(img_links)):
+                    name = cast(epub.EpubImage, img_lists[ik]).get_name()
                     print(name)
-                    imglink[ik]['src'] = name
+                    img_links[ik]['src'] = name
 
                 # Get basic pages
                 text = '<br/>' + item[i].string + '<br/>' + str(text_data.find(id='content'))
@@ -281,42 +278,42 @@ def get_ebooks(No: str, booknumber=1, timeout=(1, 3), max_retries=5, always=Fals
                 chapter.set_content(text)
                 chapters.append(chapter)
                 toc[j][1].append(chapter)
-                total_image_list[j] = imglist
-        bookadd[j] = chapters
+                total_image_list[j] = img_lists
+        book_add[j] = chapters
 
-    if booknumber == 2:
-        make_dir(bookname)
+    if book_number == 2:
+        make_dir(book_name)
         for i in range(len(chapter_list)):
-            book = book_init(bookname, author, title=chapter_list[i].string)
+            book = book_init(book_name, author, title=chapter_list[i].string)
             book.toc = tuple(toc[i][1])
-            book.spine = ['nav'] + bookadd[i]
-            for item in bookadd[i]:
+            book.spine = ['nav'] + book_add[i]
+            for item in book_add[i]:
                 book.add_item(item)
             for img_list in total_image_list[i]:
                 book.add_item(img_list)
             book.add_item(epub.EpubNcx())
             book.add_item(epub.EpubNav())
 
-            epub.write_epub(bookname + "/" + bookname + " " + chapter_list[i].string + ".epub", book)
+            epub.write_epub(book_name + "/" + book_name + " " + chapter_list[i].string + ".epub", book)
     else:
-        spine = reduce(addList, bookadd)
-        book = book_init(bookname, author)
+        spine = reduce(add_list, book_add)
+        book = book_init(book_name, author)
         book.toc = tuple(toc)
         book.spine = ['nav'] + spine
         for item in spine:
             book.add_item(item)
         for img_list in total_image_list:
-            if img_list != None:
+            if img_list is not None:
                 for item in img_list:
                     book.add_item(item)
         book.add_item(epub.EpubNcx())
         book.add_item(epub.EpubNav())
 
-        epub.write_epub(bookname + ".epub", book)
+        epub.write_epub(book_name + ".epub", book)
 
     time2 = time.time() - time1
     print('Done.\nUsing time: %0.1f min' % (time2 / 60))
 
 
 if __name__ == "__main__":
-    get_ebooks("1999", booknumber=2)
+    get_ebooks("1999", book_number=2)
